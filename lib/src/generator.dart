@@ -7,7 +7,9 @@
  */
 
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:typed_data' show Uint8List;
+import 'package:esc_pos_utils/src/isolate_global.dart';
 import 'package:hex/hex.dart';
 import 'package:image/image.dart';
 import 'package:gbk_codec/gbk_codec.dart';
@@ -611,6 +613,36 @@ class Generator {
     // Reset line spacing: ESC 2 (HEX: 0x1b 0x32)
     bytes += [27, 50];
     return bytes;
+  }
+
+  Future<List<int>> imageIsolate(Image imgSrc,
+      {PosAlign align = PosAlign.center}) async {
+    final receivePort = ReceivePort();
+    List<int> bytes = [];
+    // Image alignment
+    bytes += setStyles(PosStyles().copyWith(align: align));
+
+    await Isolate.spawn(
+      IsolateFunctions.imageIsolateEntry,
+      [receivePort.sendPort, bytes, align.index, imgSrc],
+    );
+
+    return await receivePort.first as List<int>;
+  }
+
+  Future<List<int>> imageRasterIsolate(Image imgSrc,
+      {PosAlign align = PosAlign.center}) async {
+    final receivePort = ReceivePort();
+    List<int> bytes = [];
+    // Image alignment
+    bytes += setStyles(PosStyles().copyWith(align: align));
+
+    await Isolate.spawn(
+      IsolateFunctions.imageRasterIsolateEntry,
+      [receivePort.sendPort, bytes, imgSrc],
+    );
+
+    return await receivePort.first as List<int>;
   }
 
   /// Print an image using (GS v 0) obsolete command
